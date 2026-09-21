@@ -29,14 +29,9 @@ export class LLMError extends Error {
   }
 }
 
-export interface Env {
-  OPENAI_API_KEY?: string;
-  OPENAI_BASE_URL?: string;
-  OPENAI_MODEL?: string;
-  LLM_PROVIDER?: string;
-}
-
-export function createLLMClientFromEnv(env: Env = process.env): LLMClient {
+export function createLLMClientFromEnv(
+  env: Record<string, string | undefined> = process.env
+): LLMClient {
   const provider = (env.LLM_PROVIDER ?? (env.OPENAI_API_KEY ? "openai-compatible" : "")).trim();
   if (provider === "fake") {
     // Lazy import keeps the fake out of production bundles.

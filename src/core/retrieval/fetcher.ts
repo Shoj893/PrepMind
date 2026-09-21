@@ -1,12 +1,13 @@
-import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
 import dnsCallback from "node:dns";
+import { Agent } from "undici";
 import { assertFetchableUrl, assertPublicHost, isPrivateIp, guardEnabled } from "./url";
 
 /**
  * The single point through which every outbound page fetch flows.
  *
  * - SSRF: URL validated, then DNS checked pre-flight AND again at connect
- *   time via a custom undici lookup (closes the rebinding window).
+ *   time via a custom DNS lookup passed to the dispatcher (closes the
+ *   rebinding window).
  * - Politeness: max 2 requests in flight per host, at least one second
  *   between requests to the same host (raised to the site's crawl-delay).
  * - Resilience: up to 3 attempts on 429/5xx/network errors with exponential
@@ -52,38 +53,50 @@ export interface FetchedPage {
   error?: string;
 }
 
-/** Custom DNS lookup that re-checks every resolved address at connect time. */
-function guardedLookup(): NonNullable<Dispatcher.ConnectOptions["lookup"]> {
-  return (
-    hostname: string,
-    options: dnsCallback.LookupAllOptions,
-    callback: (err: NodeJS.ErrnoException | null, addresses?: dnsCallback.LookupAddress[]) => void
-  ) => {
-    dnsCallback.lookup(hostname, { ...options, all: true }, (err, addresses) => {
-      if (err) return callback(err);
-      const list = Array.isArray(addresses) ? addresses : [addresses as dnsCallback.LookupAddress];
-      if (guardEnabled()) {
-        for (const entry of list) {
-          if (isPrivateIp(entry.address)) {
-            const blockErr = new FetchBlockedError(
-              `${hostname} resolves to a private address (${entry.address})`
-            ) as NodeJS.ErrnoException;
-            blockErr.code = "EPREPMBLOCKED";
-            return callback(blockErr);
-          }
-        }
-      }
-      callback(null, list);
-    });
-  };
+export interface FetchOptions {
+  /** Extra politeness for aggressive sites (e.g. from robots.txt crawl-delay). */
+  minHostIntervalMs?: number;
+  accept?: string;
 }
 
+/** A page-level fetcher: what robots/crawl/discussion accept for injection. */
+export type PageFetcher = (url: string, options?: FetchOptions) => Promise<FetchedPage>;
+
+/** Raw fetch signature tests can stub to exercise retry logic directly. */
+export type RawFetch = typeof globalThis.fetch;
+
+/** Custom DNS lookup that re-checks every resolved address at connect time. */
+const guardedLookup = (
+  hostname: string,
+  options: dnsCallback.LookupOneOptions,
+  callback: (err: NodeJS.ErrnoException | null, address?: string | dnsCallback.LookupAddress, family?: number) => void
+): void => {
+  dnsCallback.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) return callback(err);
+    const list = Array.isArray(addresses) ? addresses : [addresses as dnsCallback.LookupAddress];
+    if (guardEnabled()) {
+      for (const entry of list) {
+        if (isPrivateIp(entry.address)) {
+          const blockErr = new FetchBlockedError(
+            `${hostname} resolves to a private address (${entry.address})`
+          ) as NodeJS.ErrnoException;
+          blockErr.code = "EPREPMBLOCKED";
+          return callback(blockErr);
+        }
+      }
+    }
+    const first = list[0];
+    callback(null, first, first?.family ?? 4);
+  });
+};
+
+// The connect options type does not surface `lookup` in undici 7's typings;
+// the runtime accepts it (it is forwarded to net.connect).
 const guardedAgent = new Agent({
-  connect: { lookup: guardedLookup(), timeout: REQUEST_TIMEOUT_MS },
+  connect: { lookup: guardedLookup, timeout: REQUEST_TIMEOUT_MS },
   headersTimeout: REQUEST_TIMEOUT_MS,
   bodyTimeout: REQUEST_TIMEOUT_MS,
-  maxRedirections: 0,
-});
+} as ConstructorParameters<typeof Agent>[0]);
 
 // --- per-host politeness state -------------------------------------------------
 
@@ -91,7 +104,6 @@ const lastRequestAt = new Map<string, number>();
 const inFlight = new Map<string, number>();
 
 async function acquireSlot(host: string, minIntervalMs: number): Promise<void> {
-  // Serialise on a simple chain per host to keep interval + concurrency rules.
   for (;;) {
     const now = Date.now();
     const last = lastRequestAt.get(host) ?? 0;
@@ -117,67 +129,44 @@ export function sleep(ms: number): Promise<void> {
 
 // --- fetch --------------------------------------------------------------------
 
-export interface FetchOptions {
-  /** Extra politeness for aggressive sites (e.g. from robots.txt crawl-delay). */
-  minHostIntervalMs?: number;
-  accept?: string;
-  method?: "GET" | "HEAD";
-  /** Tests inject a fetch implementation. */
-  fetchImpl?: typeof undiciFetch;
-}
-
-export async function fetchPage(rawUrl: string, options: FetchOptions = {}): Promise<FetchedPage> {
+export async function fetchPage(rawUrl: string, options: FetchOptions & { rawFetch?: RawFetch } = {}): Promise<FetchedPage> {
   let url: URL;
   try {
     url = assertFetchableUrl(rawUrl);
   } catch (err) {
-    return {
-      ok: false,
-      url: rawUrl,
-      finalUrl: rawUrl,
-      status: 0,
-      error: `rejected: ${(err as Error).message}`,
-    };
+    return skipped(rawUrl, rawUrl, `rejected: ${(err as Error).message}`);
   }
-
   try {
     await assertPublicHost(url.hostname);
   } catch (err) {
-    return {
-      ok: false,
-      url: rawUrl,
-      finalUrl: rawUrl,
-      status: 0,
-      error: `rejected: ${(err as Error).message}`,
-    };
+    return skipped(rawUrl, rawUrl, `rejected: ${(err as Error).message}`);
   }
 
-  const doFetch = options.fetchImpl ?? undiciFetch;
+  const doFetch = options.rawFetch ?? globalThis.fetch;
   const minInterval = options.minHostIntervalMs ?? MIN_HOST_INTERVAL_MS;
 
   let currentUrl = url;
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
-    const attemptResult = await fetchWithRetries(doFetch, currentUrl, options, minInterval);
-    if (!attemptResult.response) return attemptResult.page;
+    const attempt = await fetchWithRetries(doFetch, currentUrl, options, minInterval);
+    if (!attempt.response) return attempt.page;
 
-    const { response } = attemptResult;
+    const response = attempt.response;
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) {
-        return { ok: false, url: rawUrl, finalUrl: currentUrl.toString(), status: response.status, error: "redirect without location" };
+        return skipped(rawUrl, currentUrl.toString(), "redirect without location", response.status);
       }
       let next: URL;
       try {
         next = assertFetchableUrl(location, currentUrl.toString());
         await assertPublicHost(next.hostname);
       } catch (err) {
-        return {
-          ok: false,
-          url: rawUrl,
-          finalUrl: currentUrl.toString(),
-          status: response.status,
-          error: `rejected redirect target: ${(err as Error).message}`,
-        };
+        return skipped(
+          rawUrl,
+          currentUrl.toString(),
+          `rejected redirect target: ${(err as Error).message}`,
+          response.status
+        );
       }
       currentUrl = next;
       continue;
@@ -185,29 +174,21 @@ export async function fetchPage(rawUrl: string, options: FetchOptions = {}): Pro
 
     const contentType = response.headers.get("content-type") ?? undefined;
     if (response.status !== 200) {
-      return {
-        ok: false,
-        url: rawUrl,
-        finalUrl: currentUrl.toString(),
-        status: response.status,
-        contentType,
-        error: `HTTP ${response.status}`,
-      };
+      return skipped(rawUrl, currentUrl.toString(), `HTTP ${response.status}`, response.status, contentType);
     }
     if (!isAllowedContentType(contentType)) {
-      return {
-        ok: false,
-        url: rawUrl,
-        finalUrl: currentUrl.toString(),
-        status: response.status,
-        contentType,
-        error: `unsupported content type: ${contentType ?? "none"}`,
-      };
+      return skipped(
+        rawUrl,
+        currentUrl.toString(),
+        `unsupported content type: ${contentType ?? "none"}`,
+        response.status,
+        contentType
+      );
     }
 
     const bodyResult = await readBodyWithLimit(response, MAX_RESPONSE_BYTES);
     return {
-      ok: true, // truncated content is still usable, error carries the notice
+      ok: true, // truncated content is still usable; error carries the notice
       url: rawUrl,
       finalUrl: currentUrl.toString(),
       status: response.status,
@@ -217,21 +198,30 @@ export async function fetchPage(rawUrl: string, options: FetchOptions = {}): Pro
     };
   }
 
-  return { ok: false, url: rawUrl, finalUrl: currentUrl.toString(), status: 0, error: "too many redirects" };
+  return skipped(rawUrl, currentUrl.toString(), "too many redirects");
+}
+
+function skipped(
+  url: string,
+  finalUrl: string,
+  error: string,
+  status = 0,
+  contentType?: string
+): FetchedPage {
+  return { ok: false, url, finalUrl, status, contentType, error };
 }
 
 async function fetchWithRetries(
-  doFetch: typeof undiciFetch,
+  doFetch: RawFetch,
   url: URL,
   options: FetchOptions,
   minInterval: number
-): Promise<{ page: FetchedPage; response?: Dispatcher.ResponseData }> {
+): Promise<{ page: FetchedPage; response?: Response }> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     await acquireSlot(url.hostname, minInterval);
     try {
-      const response = await doFetch(url, {
-        dispatcher: guardedAgent,
+      const init = {
         redirect: "manual",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         headers: {
@@ -239,25 +229,27 @@ async function fetchWithRetries(
           accept: options.accept ?? "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5",
           "accept-language": "en",
         },
-      });
+        dispatcher: guardedAgent,
+      } as RequestInit;
+
+      const response = await doFetch(url, init);
       if (response.status === 429 || response.status >= 500) {
-        const retryAfter = Number(response.headers.get("retry-after"));
-        const backoffMs = Number.isFinite(retryAfter) && retryAfter > 0
-          ? Math.min(retryAfter * 1000, 30_000)
-          : Math.min(2 ** attempt * 1000, 15_000) + Math.floor(Math.random() * 500);
         releaseSlot(url.hostname);
         if (attempt < MAX_ATTEMPTS) {
+          const retryAfter = Number(response.headers.get("retry-after"));
+          const backoffMs = Number.isFinite(retryAfter) && retryAfter > 0
+            ? Math.min(retryAfter * 1000, 30_000)
+            : Math.min(2 ** attempt * 1000, 15_000) + Math.floor(Math.random() * 500);
           await sleep(backoffMs);
           continue;
         }
         return {
-          page: {
-            ok: false,
-            url: url.toString(),
-            finalUrl: url.toString(),
-            status: response.status,
-            error: `HTTP ${response.status} after ${MAX_ATTEMPTS} attempts`,
-          },
+          page: skipped(
+            url.toString(),
+            url.toString(),
+            `HTTP ${response.status} after ${MAX_ATTEMPTS} attempts`,
+            response.status
+          ),
         };
       }
       return { page: { ok: true, url: url.toString(), finalUrl: url.toString(), status: response.status }, response };
@@ -266,9 +258,7 @@ async function fetchWithRetries(
       lastError = (err as Error).message;
       const blocked = (err as NodeJS.ErrnoException)?.code === "EPREPMBLOCKED";
       if (blocked) {
-        return {
-          page: { ok: false, url: url.toString(), finalUrl: url.toString(), status: 0, error: `blocked: ${lastError}` },
-        };
+        return { page: skipped(url.toString(), url.toString(), `blocked: ${lastError}`) };
       }
       if (attempt < MAX_ATTEMPTS) {
         await sleep(Math.min(2 ** attempt * 1000, 15_000));
@@ -277,13 +267,11 @@ async function fetchWithRetries(
     }
   }
   return {
-    page: {
-      ok: false,
-      url: url.toString(),
-      finalUrl: url.toString(),
-      status: 0,
-      error: `network error after ${MAX_ATTEMPTS} attempts: ${lastError}`,
-    },
+    page: skipped(
+      url.toString(),
+      url.toString(),
+      `network error after ${MAX_ATTEMPTS} attempts: ${lastError}`
+    ),
   };
 }
 
@@ -294,7 +282,7 @@ export function isAllowedContentType(contentType: string | undefined | null): bo
 }
 
 async function readBodyWithLimit(
-  response: Dispatcher.ResponseData,
+  response: Response,
   maxBytes: number
 ): Promise<{ text: string; truncated: boolean }> {
   const decoder = new TextDecoder("utf-8", { fatal: false });

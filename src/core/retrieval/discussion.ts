@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { fetchPage } from "./fetcher";
+import { fetchPage, type PageFetcher } from "./fetcher";
 import { assertFetchableUrl } from "./url";
 import { extractPage, looksLikeHtml, normaliseText } from "./html";
 
@@ -21,7 +21,7 @@ export interface DiscussionResult {
 
 export async function searchDiscussion(
   companyName: string,
-  options: { fetchImpl?: typeof fetchPage; maxFetches?: number } = {}
+  options: { fetchImpl?: PageFetcher; maxFetches?: number } = {}
 ): Promise<DiscussionResult> {
   const fetchImpl = options.fetchImpl ?? fetchPage;
   const maxFetches = options.maxFetches ?? 2;

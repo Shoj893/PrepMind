@@ -1,4 +1,4 @@
-import { fetchPage, type FetchOptions } from "./fetcher";
+import { fetchPage, type FetchOptions, type PageFetcher } from "./fetcher";
 import { getRobotsPolicy } from "./robots";
 import { extractPage, looksLikeHtml, type ExtractedPage } from "./html";
 import { assertFetchableUrl, sameSite } from "./url";
@@ -31,7 +31,7 @@ export interface CrawlResult {
 
 export interface CrawlOptions extends FetchOptions {
   maxPages?: number;
-  fetchImpl?: typeof fetchPage;
+  fetchImpl?: PageFetcher;
 }
 
 const HIRING_PATTERNS = [
@@ -112,12 +112,12 @@ export async function crawlCompanySite(
   const policy = await getRobotsPolicy(baseUrl.toString(), fetchImpl);
   const minInterval = Math.max(options.minHostIntervalMs ?? 0, policy.crawlDelayMs);
 
-  const home = await fetchImpl(baseUrl.toString(), { ...options, minHostIntervalMs: minInterval });
+  const home = await fetchImpl(baseUrl.toString(), { minHostIntervalMs: minInterval, accept: options.accept });
   if (!home.ok || !home.body) {
     skipped.push({ url: baseUrl.toString(), reason: home.error ?? `HTTP ${home.status}` });
     // Some sites 404 the bare path but serve the domain root; try it once.
     if (home.status === 404 && baseUrl.pathname !== "/") {
-      const root = await fetchImpl(baseUrl.origin + "/", { ...options, minHostIntervalMs: minInterval });
+      const root = await fetchImpl(baseUrl.origin + "/", { minHostIntervalMs: minInterval, accept: options.accept });
       if (!root.ok || !root.body) {
         skipped.push({ url: baseUrl.origin + "/", reason: root.error ?? `HTTP ${root.status}` });
         return { pages, skipped, crawlDelayMs: policy.crawlDelayMs };
@@ -176,7 +176,7 @@ export async function crawlCompanySite(
       skipped.push({ url: candidate.href, reason: "disallowed by robots.txt" });
       continue;
     }
-    const page = await fetchImpl(candidate.href, { ...options, minHostIntervalMs: minInterval });
+    const page = await fetchImpl(candidate.href, { minHostIntervalMs: minInterval, accept: options.accept });
     if (!page.ok || !page.body) {
       skipped.push({ url: candidate.href, reason: page.error ?? `HTTP ${page.status}` });
       continue;
@@ -210,7 +210,7 @@ async function fetchSitemapCandidates(
 ): Promise<{ href: string; text: string; score: number }[]> {
   const sitemapUrl = new URL("/sitemap.xml", baseUrl.origin).toString();
   if (!/^https?:$/.test(new URL(sitemapUrl).protocol)) return [];
-  const page = await fetchImpl(sitemapUrl, { ...options, minHostIntervalMs: minInterval });
+  const page = await fetchImpl(sitemapUrl, { minHostIntervalMs: minInterval, accept: options.accept });
   if (!page.ok || !page.body) {
     skipped.push({ url: sitemapUrl, reason: page.error ?? `HTTP ${page.status}` });
     return [];

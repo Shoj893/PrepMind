@@ -6,6 +6,7 @@ import {
   generateKit,
   normaliseRequirements,
   PipelineError,
+  type Progress,
 } from "@/core/llm/pipeline";
 import {
   regenerateFlashcards,
@@ -173,7 +174,7 @@ describe("generateKit (fake LLM, fake retrieval)", () => {
     const stages: string[] = [];
     await generateKit(
       { jd: JD, companyUrl: "https://acme.example", days: 3 },
-      makeDeps({ onProgress: (p) => stages.push(p.stage) })
+      makeDeps({ onProgress: (p: Progress) => stages.push(p.stage) })
     );
     expect(stages[0]).toBe("requirements");
     expect(stages).toContain("crawl");

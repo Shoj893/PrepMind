@@ -1,6 +1,6 @@
 import { checkCoverage, uncoveredAll } from "@/core/kit/coverage";
 import { buildSchedule } from "@/core/kit/schedule";
-import type { Kit, RequirementCategory } from "@/core/kit/types";
+import type { Kit, Question, RequirementCategory } from "@/core/kit/types";
 import { validateKit } from "@/core/kit/validate";
 import { companyBriefPrompt } from "./prompts";
 import {
@@ -50,7 +50,7 @@ export async function regenerateQuestionsForCategory(
   const coverage = checkCoverage(kit.role.requirements, kept);
   const gapRequirements = uncoveredAll(coverage, kit.role.requirements);
 
-  let additions = [];
+  let additions: Question[] = [];
   if (gapRequirements.length > 0) {
     additions = await generateQuestionsForRequirements(
       gapRequirements,
@@ -179,7 +179,7 @@ function appendWithFreshIds<T extends { id: string }>(
 ): T[] {
   const used = new Set([...kept.map((item) => item.id), ...reserved]);
   let max = 0;
-  for (const id of kept) {
+  for (const id of kept.map((item) => item.id)) {
     const match = new RegExp(`^${prefix}_(\\d+)$`).exec(id);
     if (match) max = Math.max(max, Number(match[1]));
   }

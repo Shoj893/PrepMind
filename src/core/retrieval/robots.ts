@@ -1,4 +1,4 @@
-import { fetchPage } from "./fetcher";
+import { fetchPage, type PageFetcher } from "./fetcher";
 import { assertFetchableUrl } from "./url";
 
 /**
@@ -26,7 +26,7 @@ interface Rule {
 
 export async function getRobotsPolicy(
   siteUrl: string,
-  fetchImpl: typeof fetchPage = fetchPage
+  fetchImpl: PageFetcher = fetchPage
 ): Promise<RobotsPolicy> {
   const origin = new URL(siteUrl).origin;
   const cached = CACHE.get(origin);
@@ -41,7 +41,7 @@ export function clearRobotsCache(): void {
   CACHE.clear();
 }
 
-async function loadPolicy(origin: string, fetchImpl: typeof fetchPage): Promise<RobotsPolicy> {
+async function loadPolicy(origin: string, fetchImpl: PageFetcher): Promise<RobotsPolicy> {
   let robotsUrl: URL;
   try {
     robotsUrl = assertFetchableUrl(`${origin}/robots.txt`);

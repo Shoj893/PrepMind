@@ -100,6 +100,8 @@ export async function generateKit(input: GenerateKitInput, deps: PipelineDeps): 
     extractRequirementsPrompt(jd)
   );
   const requirements = normaliseRequirements(extraction.requirements, jd);
+  const roleTitle = (extraction.role_title ?? "").trim();
+  const summaryMd = (extraction.summary_md ?? "").trim() || "No summary was extracted from the job description.";
   const notices: string[] = [];
   if (requirements.length <= 2) {
     notices.push(
@@ -115,7 +117,7 @@ export async function generateKit(input: GenerateKitInput, deps: PipelineDeps): 
 
   // ---- 3. public discussion --------------------------------------------------
   progress("discussion", "Looking for public discussion of the interview process…", 30);
-  const companyName = companyFromUrl(input.companyUrl, extraction.role_title);
+  const companyName = companyFromUrl(input.companyUrl, roleTitle);
   const discussion = await (deps.searchDiscussion ?? defaultDiscussion)(companyName);
 
   const sources = collectSources(crawl, discussion);
@@ -203,7 +205,7 @@ export async function generateKit(input: GenerateKitInput, deps: PipelineDeps): 
   notices.push(...scheduleNotices);
 
   // ---- 10. validation -----------------------------------------------------------
-  const title = `${extraction.role_title || "Interview prep"} — ${brief.company_name || companyName}`;
+  const title = `${roleTitle || "Interview prep"} — ${brief.company_name || companyName}`;
   const kit: Kit = {
     id: `kit_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
     title: title.slice(0, 160),
@@ -215,8 +217,8 @@ export async function generateKit(input: GenerateKitInput, deps: PipelineDeps): 
       brief_edited: false,
     },
     role: {
-      title: extraction.role_title || "the role",
-      summary_md: extraction.summary_md,
+      title: roleTitle || "the role",
+      summary_md: summaryMd,
       requirements,
     },
     questions,
@@ -298,7 +300,7 @@ export async function generateQuestionsForRequirements(
   onEach?: (done: number, total: number) => void,
   options: { gapFill?: boolean; idStart?: number } = {}
 ): Promise<Question[]> {
-  const out: Question[] = [];
+  const out: Omit<Question, "id">[] = [];
   let done = 0;
   // Small concurrent batches pace the provider; the client itself retries 429s.
   for (let i = 0; i < requirements.length; i += QUESTION_CONCURRENCY) {
@@ -429,7 +431,7 @@ export async function completeJson<T>(llm: LLMClient, prompt: { system: string; 
   }
 }
 
-async function defaultCrawl(url: string, options?: { maxPages?: number }): Promise<CrawlResult> {
+export async function defaultCrawl(url: string, options?: { maxPages?: number }): Promise<CrawlResult> {
   const { crawlCompanySite } = await import("@/core/retrieval/crawl");
   return crawlCompanySite(url, { maxPages: options?.maxPages });
 }
