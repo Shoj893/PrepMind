@@ -141,8 +141,7 @@ export function buildSchedule(input: ScheduleInput): ScheduleResult {
   // Overflow lands on the final day rather than vanishing; the day may exceed
   // the target budget and says so.
   const scheduledIds = new Set(items.flatMap((d) => d.question_ids));
-  const overflow = ranked.filter((q) => !scheduledIds.has(q.id));
-  if (overflow.length > 0 && items.length > 0) {
+  const overflow = ranked.filter((q) => !scheduledIds.has(q.id));  if (overflow.length > 0 && items.length > 0) {
     const last = items[items.length - 1];
     last.question_ids.push(...overflow.map((q) => q.id));
     last.requirement_ids = [
@@ -154,6 +153,22 @@ export function buildSchedule(input: ScheduleInput): ScheduleResult {
     notices.push(
       `${overflow.length} question(s) did not fit the daily budget and were added to the final day.`
     );
+  }
+
+  // A must-have requirement with no question against it must still appear in
+  // the schedule (it gets self-study time on day one), and the coverage panel
+  // reports honestly that no generated question exists for it.
+  const mustReqIds = requirements.filter((r) => r.kind === "must").map((r) => r.id);
+  const scheduledReqIds = new Set(items.flatMap((d) => d.requirement_ids));
+  const uncoveredInSchedule = mustReqIds.filter((rid) => !scheduledReqIds.has(rid));
+  if (uncoveredInSchedule.length > 0 && items.length > 0) {
+    items[0].requirement_ids = [...new Set([...items[0].requirement_ids, ...uncoveredInSchedule])];
+    items[0].note = [
+      items[0].note,
+      "Includes self-study for requirement(s) with no generated question yet — see Coverage.",
+    ]
+      .filter(Boolean)
+      .join(" ");
   }
 
   // More days than fresh material: fill the rest with rotating review days.

@@ -43,6 +43,7 @@ export type Origin = z.infer<typeof OriginSchema>;
 
 export const SourceKindSchema = z.enum([
   "company_site",
+  "home",
   "hiring",
   "about",
   "engineering",
