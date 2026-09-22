@@ -1,7 +1,9 @@
+import { FakeLLM } from "./fake";
+
 /**
  * LLM client interface. The pipeline only knows this interface; the OpenAI-
- * compatible implementation is the real provider, FakeLLM is deterministic
- * and used by tests and offline development.
+ * compatible implementation is the real provider (Groq or any OpenAI-shaped
+ * endpoint), FakeLLM is deterministic and used by tests and offline runs.
  */
 
 export interface CompletionRequest {
@@ -32,13 +34,29 @@ export class LLMError extends Error {
 export function createLLMClientFromEnv(
   env: Record<string, string | undefined> = process.env
 ): LLMClient {
-  const provider = (env.LLM_PROVIDER ?? (env.OPENAI_API_KEY ? "openai-compatible" : "")).trim();
+  const provider = (
+    env.LLM_PROVIDER ??
+    (env.GROQ_API_KEY ? "groq" : env.OPENAI_API_KEY ? "openai-compatible" : "")
+  ).trim();
+
   if (provider === "fake") {
-    // Lazy import keeps the fake out of production bundles.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { FakeLLM } = require("./fake") as typeof import("./fake");
     return new FakeLLM();
   }
+
+  if (provider === "groq") {
+    if (!env.GROQ_API_KEY) {
+      throw new LLMError(
+        "LLM_PROVIDER=groq but GROQ_API_KEY is not set. Create a key at https://console.groq.com/keys and set GROQ_API_KEY in .env (see .env.example)."
+      );
+    }
+    // Groq's chat-completions API is OpenAI-compatible.
+    return new OpenAICompatibleClient({
+      apiKey: env.GROQ_API_KEY,
+      baseUrl: env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
+      model: env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+    });
+  }
+
   if (provider === "openai-compatible" && env.OPENAI_API_KEY) {
     return new OpenAICompatibleClient({
       apiKey: env.OPENAI_API_KEY,
@@ -46,8 +64,9 @@ export function createLLMClientFromEnv(
       model: env.OPENAI_MODEL ?? "gpt-4o-mini",
     });
   }
+
   throw new LLMError(
-    "No LLM configured. Set LLM_PROVIDER=openai-compatible with OPENAI_API_KEY (and optionally OPENAI_BASE_URL, OPENAI_MODEL), or LLM_PROVIDER=fake for offline runs. See .env.example."
+    "No LLM configured. Set LLM_PROVIDER=groq with GROQ_API_KEY (recommended), or LLM_PROVIDER=openai-compatible with OPENAI_API_KEY for any OpenAI-shaped endpoint, or LLM_PROVIDER=fake for offline runs. See .env.example."
   );
 }
 

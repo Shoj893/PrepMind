@@ -10,24 +10,28 @@ reshapeable, and you practise against it inside the app.
 ## Stack
 
 - **Next.js 16 (App Router) + TypeScript** — UI and API routes in one deployable
+- **Groq** (`LLM_PROVIDER=groq`, default) — Llama 3.3 70B via Groq's
+  OpenAI-compatible chat-completions API; any other OpenAI-shaped endpoint works
+  too (`LLM_PROVIDER=openai-compatible`)
 - **Tailwind CSS v4** — styling (light-scheme design; see `globals.css` for why)
 - **better-sqlite3** — persistence (one file, WAL, auto-migrated)
 - **zod** — request and kit-document validation
 - **cheerio** — untrusted-HTML parsing for the crawler
 - **undici** — guarded outbound fetch dispatcher
-- **vitest** — 61 automated tests
+- **vitest** — 69 automated tests
 
 ## Install & run
 
 ```bash
 npm install
-cp .env.example .env      # fill in OPENAI_API_KEY (or set LLM_PROVIDER=fake)
+cp .env.example .env      # set GROQ_API_KEY (free at console.groq.com/keys), or LLM_PROVIDER=fake
 npm run dev               # http://localhost:3000
 ```
 
 `LLM_PROVIDER=fake` runs the whole app offline against a deterministic fake
-model — useful for trying the product without credentials. With a real key,
-generation typically takes 1–3 minutes per kit.
+model — useful for trying the product without credentials. With a real Groq
+key, generation typically takes well under a minute per kit (Groq's inference
+speed suits the pipeline's many small calls).
 
 ### Batch entry point (mandatory command)
 

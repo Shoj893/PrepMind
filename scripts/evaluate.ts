@@ -65,7 +65,8 @@ Options:
   --case-timeout <ms>    Per-case wall-clock budget (default 150000)
 
 Credentials are read from the environment (see .env.example):
-  LLM_PROVIDER, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL
+  LLM_PROVIDER=groq + GROQ_API_KEY (recommended; GROQ_MODEL/GROQ_BASE_URL optional)
+  or LLM_PROVIDER=openai-compatible + OPENAI_API_KEY
   ALLOW_PRIVATE_HOSTS=1 to crawl local fixture sites (auto-enabled per case
   when a case URL is a loopback/private address).`);
 }
