@@ -34,9 +34,13 @@ export class LLMError extends Error {
 export function createLLMClientFromEnv(
   env: Record<string, string | undefined> = process.env
 ): LLMClient {
+  const envLlmProvider = env.LLM_PROVIDER ?? process.env.LLM_PROVIDER;
+  const envGroqKey = env.GROQ_API_KEY ?? process.env.GROQ_API_KEY;
+  const envOpenaiKey = env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+
   const provider = (
-    env.LLM_PROVIDER ??
-    (env.GROQ_API_KEY ? "groq" : env.OPENAI_API_KEY ? "openai-compatible" : "")
+    envLlmProvider ??
+    (envGroqKey ? "groq" : envOpenaiKey ? "openai-compatible" : "")
   ).trim();
 
   if (provider === "fake") {
@@ -44,24 +48,24 @@ export function createLLMClientFromEnv(
   }
 
   if (provider === "groq") {
-    if (!env.GROQ_API_KEY) {
+    if (!envGroqKey) {
       throw new LLMError(
         "LLM_PROVIDER=groq but GROQ_API_KEY is not set. Create a key at https://console.groq.com/keys and set GROQ_API_KEY in .env (see .env.example)."
       );
     }
     // Groq's chat-completions API is OpenAI-compatible.
     return new OpenAICompatibleClient({
-      apiKey: env.GROQ_API_KEY,
-      baseUrl: env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
-      model: env.GROQ_MODEL ?? "openai/gpt-oss-20b",
+      apiKey: envGroqKey,
+      baseUrl: env.GROQ_BASE_URL ?? process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
+      model: env.GROQ_MODEL ?? process.env.GROQ_MODEL ?? "openai/gpt-oss-20b",
     });
   }
 
-  if (provider === "openai-compatible" && env.OPENAI_API_KEY) {
+  if (provider === "openai-compatible" && envOpenaiKey) {
     return new OpenAICompatibleClient({
-      apiKey: env.OPENAI_API_KEY,
-      baseUrl: env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-      model: env.OPENAI_MODEL ?? "gpt-4o-mini",
+      apiKey: envOpenaiKey,
+      baseUrl: env.OPENAI_BASE_URL ?? process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+      model: env.OPENAI_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
     });
   }
 
