@@ -53,7 +53,7 @@ export function createLLMClientFromEnv(
     return new OpenAICompatibleClient({
       apiKey: env.GROQ_API_KEY,
       baseUrl: env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
-      model: env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+      model: env.GROQ_MODEL ?? "openai/gpt-oss-20b",
     });
   }
 

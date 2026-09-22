@@ -14,7 +14,7 @@ describe("createLLMClientFromEnv", () => {
       GROQ_API_KEY: "gsk_test",
     });
     expect(client).toBeInstanceOf(OpenAICompatibleClient);
-    expect(client.model).toBe("llama-3.3-70b-versatile");
+    expect(client.model).toBe("openai/gpt-oss-20b");
   });
 
   it("honours GROQ_BASE_URL and GROQ_MODEL overrides", () => {
