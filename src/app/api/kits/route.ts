@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { jsonError, requireUser, unexpectedErrorResponse, zodErrorResponse } from "@/server/api-helpers";
+import { jsonError, requireUser, unexpectedErrorResponse, zodErrorResponse, kitSummary } from "@/server/api-helpers";
 import { createKit } from "@/server/generation";
 import { kitQueries } from "@/server/db";
 
@@ -9,20 +9,6 @@ const createSchema = z.object({
   company_url: z.string().trim().min(4).max(2000),
   days: z.number().int().min(1).max(365),
 });
-
-export function kitSummary(row: ReturnType<typeof kitQueries.getByUser>[number]) {
-  return {
-    id: row.id,
-    title: row.title,
-    status: row.status,
-    stage: row.stage,
-    company_url: row.company_url,
-    days: row.days,
-    error: row.error,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  };
-}
 
 export async function GET() {
   try {

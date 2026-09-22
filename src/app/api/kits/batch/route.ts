@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser, unexpectedErrorResponse, zodErrorResponse } from "@/server/api-helpers";
+import { requireUser, unexpectedErrorResponse, zodErrorResponse, kitSummary } from "@/server/api-helpers";
 import { createKit } from "@/server/generation";
 import { kitQueries } from "@/server/db";
-import { kitSummary } from "../route";
 
 const batchSchema = z.object({
   cases: z

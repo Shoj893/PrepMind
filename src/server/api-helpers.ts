@@ -37,3 +37,18 @@ export function unexpectedErrorResponse(err: unknown) {
   console.error("[api]", err);
   return jsonError(500, "internal", "Something went wrong on our side. Please try again.");
 }
+
+import type { KitRow } from "./db";
+export function kitSummary(row: KitRow) {
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    stage: row.stage,
+    company_url: row.company_url,
+    days: row.days,
+    error: row.error,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
