@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CATEGORY_LABELS, type Kit, type Question } from "@/core/kit/types";
+import { type Kit, type Question } from "@/core/kit/types";
+import { CategoryBadge } from "@/components/CategoryBadge";
 import type { CardStat } from "@/core/practice";
 import { apiGet } from "@/lib/api";
 import { Badge, Button, Card, ErrorBanner } from "@/components/ui";
@@ -159,17 +160,21 @@ export function InterviewClient({ kit }: { kit: Kit }) {
   const seconds = secondsLeft % 60;
 
   if (!started) {
-    return (
-      <main className="mx-auto w-full max-w-2xl px-4 py-8">
-        <header className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold">Mock interview — {kit.title}</h1>
+  return (
+    <main className="min-h-screen">
+      <div className="border-b border-slate-200/70 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/60">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-6">
+          <h1 className="text-xl font-bold tracking-tight">Mock interview — {kit.title}</h1>
           <Link href={`/kits/${kit.id}`}>
             <Button variant="secondary">Back to kit</Button>
           </Link>
-        </header>
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-2xl px-4 py-8">
         {error && <div className="mb-4"><ErrorBanner message={error} /></div>}
         <Card className="p-6">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm leading-relaxed text-slate-600">
             You&apos;ll be asked each question against a {QUESTION_SECONDS / 60}-minute clock, one at
             a time, hardest-for-you first (based on your practice confidence). Rate yourself honestly
             after each answer — shaky answers resurface later in the run, and you&apos;ll get a
@@ -182,105 +187,115 @@ export function InterviewClient({ kit }: { kit: Kit }) {
             <p className="mt-2 text-sm text-slate-500">This kit has no questions to practise.</p>
           )}
         </Card>
-      </main>
-    );
-  }
+      </div>
+    </main>
+  );
+}
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-8">
-      <header className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Mock interview</h1>
-        <Link href={`/kits/${kit.id}`}>
-          <Button variant="secondary">End run</Button>
-        </Link>
-      </header>
+    <main className="min-h-screen">
+      <div className="border-b border-slate-200/70 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/60">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-6">
+          <h1 className="text-xl font-bold tracking-tight">Mock interview</h1>
+          <Link href={`/kits/${kit.id}`}>
+            <Button variant="secondary">End run</Button>
+          </Link>
+        </div>
+      </div>
 
-      {current ? (
-        <>
-          <div className="mb-4 flex items-center justify-between text-sm text-slate-500">
-            <span>
-              Question {ratings.length + 1} · {queue.length + 1} in run
-            </span>
-            <span
-              className={`font-mono tabular-nums ${secondsLeft <= 30 ? "text-red-600" : ""}`}
-              role="timer"
-              aria-label="Time remaining"
-            >
-              {minutes}:{seconds.toString().padStart(2, "0")}
-            </span>
-          </div>
-          <Card className="p-6">
-            <div className="mb-3 flex items-center gap-2">
-              <Badge>{CATEGORY_LABELS[current.category]}</Badge>
-              <Badge tone={current.difficulty >= 4 ? "red" : "slate"}>difficulty {current.difficulty}</Badge>
+      <div className="mx-auto w-full max-w-2xl px-4 py-8">
+        {current ? (
+          <>
+            <div className="mb-4 flex items-center justify-between text-sm text-slate-500">
+              <span>
+                Question {ratings.length + 1} · {queue.length + 1} in run
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 font-mono text-sm font-semibold tabular-nums ${
+                  secondsLeft <= 30
+                    ? "bg-red-50 text-red-600 ring-1 ring-inset ring-red-200"
+                    : "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200"
+                }`}
+                role="timer"
+                aria-label="Time remaining"
+              >
+                {minutes}:{seconds.toString().padStart(2, "0")}
+              </span>
             </div>
-            <p className="text-lg font-medium">{current.prompt}</p>
-            {showOutline && (
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="whitespace-pre-wrap text-sm text-slate-700">{current.answer_outline_md}</p>
+            <Card className="p-6">
+              <div className="mb-3 flex items-center gap-2">
+                <CategoryBadge category={current.category} />
+                <Badge tone={current.difficulty >= 4 ? "red" : "slate"}>difficulty {current.difficulty}</Badge>
               </div>
-            )}
-            <div className="mt-4 flex gap-2">
-              <Button variant="ghost" onClick={() => setShowOutline((v) => !v)}>
-                {showOutline ? "Hide outline" : "Peek at outline"}
-              </Button>
+              <p className="text-lg font-medium leading-relaxed">{current.prompt}</p>
+              {showOutline && (
+                <div className="mt-4 rounded-xl bg-indigo-50/70 p-4 ring-1 ring-inset ring-indigo-100">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-400">Outline</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{current.answer_outline_md}</p>
+                </div>
+              )}
+              <div className="mt-4 flex gap-2">
+                <Button variant="ghost" onClick={() => setShowOutline((v) => !v)}>
+                  {showOutline ? "Hide outline" : "Peek at outline"}
+                </Button>
+              </div>
+            </Card>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="How did that go?">
+              {([0, 1, 2, 3] as const).map((rating) => (
+                <Button key={rating} variant={rating >= 2 ? "secondary" : "danger"} onClick={() => next(rating)}>
+                  {RATING_LABELS[rating]}
+                </Button>
+              ))}
             </div>
-          </Card>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="How did that go?">
-            {([0, 1, 2, 3] as const).map((rating) => (
-              <Button key={rating} variant={rating >= 2 ? "secondary" : "danger"} onClick={() => next(rating)}>
-                {RATING_LABELS[rating]}
-              </Button>
-            ))}
-          </div>
-          <button
-            onClick={() => next(null)}
-            className="mt-3 text-xs text-slate-400 underline hover:text-slate-600"
-          >
-            Skip this question
-          </button>
-        </>
-      ) : (
-        summary && (
-          <Card className="p-6">
-            <h2 className="font-semibold">Run complete — {summary.answered} answers</h2>
-            <h3 className="mt-4 text-sm font-semibold text-slate-700">Weak spots</h3>
-            <ul className="mt-2 space-y-1 text-sm">
-              {[...summary.byCategory.entries()]
-                .sort((a, b) => b[1].weak / b[1].total - a[1].weak / a[1].total)
-                .map(([category, stat]) => (
-                  <li key={category} className="flex items-center gap-2">
-                    <Badge tone={stat.weak > 0 ? "amber" : "green"}>{CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? category}</Badge>
-                    <span className="text-slate-600">
-                      {stat.weak} shaky of {stat.total}
-                    </span>
-                  </li>
-                ))}
-            </ul>
-            {summary.weakRequirements.size > 0 && (
-              <>
-                <h3 className="mt-4 text-sm font-semibold text-slate-700">Requirements to revisit</h3>
-                <ul className="mt-2 space-y-1 text-sm text-slate-600">
-                  {[...summary.weakRequirements.entries()]
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 5)
-                    .map(([rid, count]) => (
-                      <li key={rid}>
-                        {kit.role.requirements.find((r) => r.id === rid)?.text ?? rid} ({count})
-                      </li>
-                    ))}
-                </ul>
-              </>
-            )}
-            <div className="mt-5 flex gap-2">
-              <Button onClick={begin}>Run again</Button>
-              <Link href={`/kits/${kit.id}/practice`}>
-                <Button variant="secondary">Drill flashcards</Button>
-              </Link>
-            </div>
-          </Card>
-        )
-      )}
+            <button
+              onClick={() => next(null)}
+              className="mt-3 text-xs text-slate-400 underline hover:text-slate-600"
+            >
+              Skip this question
+            </button>
+          </>
+        ) : (
+          summary && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold">Run complete — {summary.answered} answers</h2>
+              <h3 className="mt-4 text-sm font-semibold text-slate-700">Weak spots</h3>
+              <ul className="mt-2 space-y-1.5 text-sm">
+                {[...summary.byCategory.entries()]
+                  .sort((a, b) => b[1].weak / b[1].total - a[1].weak / a[1].total)
+                  .map(([category, stat]) => (
+                    <li key={category} className="flex items-center gap-2">
+                      <CategoryBadge category={category} />
+                      <span className="text-slate-600">
+                        {stat.weak} shaky of {stat.total}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+              {summary.weakRequirements.size > 0 && (
+                <>
+                  <h3 className="mt-4 text-sm font-semibold text-slate-700">Requirements to revisit</h3>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                    {[...summary.weakRequirements.entries()]
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 5)
+                      .map(([rid, count]) => (
+                        <li key={rid}>
+                          {kit.role.requirements.find((r) => r.id === rid)?.text ?? rid} ({count})
+                        </li>
+                      ))}
+                  </ul>
+                </>
+              )}
+              <div className="mt-5 flex gap-2">
+                <Button onClick={begin}>Run again</Button>
+                <Link href={`/kits/${kit.id}/practice`}>
+                  <Button variant="secondary">Drill flashcards</Button>
+                </Link>
+              </div>
+            </Card>
+          )
+        )}
+      </div>
     </main>
   );
 }

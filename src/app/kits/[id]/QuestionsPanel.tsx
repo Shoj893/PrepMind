@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABELS, REQUIREMENT_CATEGORIES, type Kit, type Question } from "@/core/kit/types";
+import { CategoryBadge } from "@/components/CategoryBadge";
 import { Badge, Button, Card, Input, Textarea } from "@/components/ui";
 import type { PanelProps } from "./KitWorkspace";
 
@@ -29,11 +30,11 @@ export function QuestionsPanel({ kit, patch, regenerate, busy }: PanelProps) {
         const questions = kit.questions.filter((q) => q.category === category);
         if (questions.length === 0 && addingFor !== category) return null;
         return (
-          <Card key={category} className="p-5">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold">
-                {CATEGORY_LABELS[category]}{" "}
-                <span className="text-sm font-normal text-slate-400">({questions.length})</span>
+          <Card key={category} className="overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+              <h3 className="flex items-center gap-2 font-semibold">
+                <CategoryBadge category={category} />
+                <span className="text-sm font-normal text-slate-400">{questions.length}</span>
               </h3>
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => setAddingFor(category)}>
@@ -52,17 +53,19 @@ export function QuestionsPanel({ kit, patch, regenerate, busy }: PanelProps) {
             </div>
 
             {addingFor === category && (
-              <AddQuestionForm
-                kit={kit}
-                onCancel={() => setAddingFor(null)}
-                onAdd={async (payload) => {
-                  await patch({ op: "add_question", question: { ...payload, category } });
-                  setAddingFor(null);
-                }}
-              />
+              <div className="p-5 pb-0">
+                <AddQuestionForm
+                  kit={kit}
+                  onCancel={() => setAddingFor(null)}
+                  onAdd={async (payload) => {
+                    await patch({ op: "add_question", question: { ...payload, category } });
+                    setAddingFor(null);
+                  }}
+                />
+              </div>
             )}
 
-            <ul className="space-y-3">
+            <ul className="divide-y divide-slate-100">
               {questions.map((q, idx) => (
                 <QuestionRow
                   key={q.id}
@@ -76,7 +79,7 @@ export function QuestionsPanel({ kit, patch, regenerate, busy }: PanelProps) {
               ))}
             </ul>
             {questions.length === 0 && (
-              <p className="text-sm text-slate-400">No questions in this category yet.</p>
+              <p className="p-5 text-sm text-slate-400">No questions in this category yet.</p>
             )}
           </Card>
         );
@@ -149,7 +152,7 @@ function QuestionRow({
     .slice(0, 2) as string[];
 
   return (
-    <li className="rounded-lg border border-slate-100 p-3">
+    <li className="p-5 transition-colors hover:bg-indigo-50/30">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1 space-y-2">
           <Textarea
@@ -157,49 +160,57 @@ function QuestionRow({
             onChange={(e) => scheduleSave("prompt", e.target.value)}
             rows={2}
             aria-label="Question prompt"
-            className="font-medium"
+            className="resize-none border-transparent bg-transparent px-2 py-1 text-[15px] font-medium shadow-none hover:border-slate-200 focus:border-indigo-500"
           />
           {saved !== "idle" && (
-            <p className={`text-xs ${saved === "saving" ? "text-slate-400" : "text-red-600"}`}>
+            <p className={`px-2 text-xs ${saved === "saving" ? "text-slate-400" : "text-red-600"}`}>
               {saved === "saving" ? "Saving…" : "Save failed — retry by editing again"}
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-            <Badge tone={question.origin === "user" ? "blue" : question.origin === "edited" ? "amber" : "slate"}>
+          <div className="flex flex-wrap items-center gap-2 px-2 text-xs text-slate-500">
+            <Badge tone={question.origin === "user" ? "indigo" : question.origin === "edited" ? "amber" : "slate"}>
               {question.origin}
             </Badge>
-            {question.pinned && <Badge tone="amber">pinned</Badge>}
-            <span>difficulty</span>
-            <select
-              value={question.difficulty}
-              aria-label="Difficulty"
-              onChange={(e) =>
-                patch({
-                  op: "update_question",
-                  question_id: question.id,
-                  patch: { difficulty: Number(e.target.value) },
-                })
-              }
-              className="rounded border border-slate-200 px-1 py-0.5"
-            >
-              {[1, 2, 3, 4, 5].map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-            <span>covers</span>
-            <span className="max-w-md truncate">{requirementTexts.join(" · ") || "—"}</span>
+            {question.pinned && (
+              <Badge tone="amber">
+                <span aria-hidden="true">📌</span> pinned
+              </Badge>
+            )}
+            <span className="flex items-center gap-1">
+              difficulty
+              <select
+                value={question.difficulty}
+                aria-label="Difficulty"
+                onChange={(e) =>
+                  patch({
+                    op: "update_question",
+                    question_id: question.id,
+                    patch: { difficulty: Number(e.target.value) },
+                  })
+                }
+                className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-slate-700 focus:border-indigo-500 focus:outline-none"
+              >
+                {[1, 2, 3, 4, 5].map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </span>
+            <span className="max-w-md truncate">covers: {requirementTexts.join(" · ") || "—"}</span>
           </div>
           {open && (
-            <div className="space-y-2">
-              <Textarea
-                value={outline}
-                onChange={(e) => scheduleSave("outline", e.target.value)}
-                rows={4}
-                aria-label="Answer outline"
-                className="text-sm"
-              />
+            <div className="space-y-2 rounded-xl bg-slate-50 p-3">
+              <div>
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Answer outline</p>
+                <Textarea
+                  value={outline}
+                  onChange={(e) => scheduleSave("outline", e.target.value)}
+                  rows={4}
+                  aria-label="Answer outline"
+                  className="bg-white text-sm"
+                />
+              </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500">Category</span>
                 <select
@@ -208,7 +219,7 @@ function QuestionRow({
                   onChange={(e) =>
                     patch({ op: "move_question", question_id: question.id, category: e.target.value })
                   }
-                  className="rounded border border-slate-200 px-1 py-0.5"
+                  className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-slate-700 focus:border-indigo-500 focus:outline-none"
                 >
                   {REQUIREMENT_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -233,6 +244,7 @@ function QuestionRow({
               onClick={() => patch({ op: "toggle_pin", question_id: question.id })}
               aria-label={question.pinned ? "Unpin question" : "Pin question"}
               title={question.pinned ? "Unpin" : "Pin — survives regeneration"}
+              className={question.pinned ? "text-amber-500" : ""}
             >
               {question.pinned ? "★" : "☆"}
             </Button>
@@ -293,7 +305,7 @@ function AddQuestionForm({
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <label className="flex items-center gap-1">
           Difficulty
-          <select value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))} className="rounded border border-slate-200 px-1 py-0.5">
+          <select value={difficulty} onChange={(e) => setDifficulty(Number(e.target.value))} className="rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-slate-700 focus:border-indigo-500 focus:outline-none">
             {[1, 2, 3, 4, 5].map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
@@ -301,7 +313,7 @@ function AddQuestionForm({
         </label>
         <label className="flex min-w-0 flex-1 items-center gap-1">
           Requirement
-          <select value={requirementId} onChange={(e) => setRequirementId(e.target.value)} className="min-w-0 flex-1 rounded border border-slate-200 px-1 py-0.5">
+          <select value={requirementId} onChange={(e) => setRequirementId(e.target.value)} className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-slate-700 focus:border-indigo-500 focus:outline-none">
             {kit.role.requirements.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.text.slice(0, 70)}

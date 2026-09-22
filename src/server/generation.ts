@@ -116,6 +116,9 @@ export async function runKitGeneration(
     const llm = deps?.llm ?? createLLMClientFromEnv();
     record({ stage: "queued", message: "Starting…", percent: 1 });
     const kit = await generateKit(input, { llm, onProgress: record });
+    // The URL and every client API call key off the DB row id; the payload
+    // must carry exactly that id, not the one the pipeline minted.
+    kit.id = kitId;
     const validation = validateKit(kit);
     if (!validation.ok) {
       throw new Error(`Generated kit failed validation: ${validation.errors.join("; ")}`);

@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+/*
+ * PrepMind is a light-only design. Forcing `color-scheme: light` keeps
+ * UA-rendered form controls (inputs, selects, progress bars) dark-text-on-
+ * light even when the visitor's OS or browser prefers dark mode — without
+ * this, inputs inherit white text on light containers and become invisible.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
@@ -12,15 +19,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--background);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background-color: #e0e7ff;
+  color: #1e1b4b;
 }

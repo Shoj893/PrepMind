@@ -55,8 +55,8 @@ export function FlashcardsPanel({ kit, patch, regenerate, busy }: PanelProps) {
 
       <ul className="grid gap-3 md:grid-cols-2">
         {kit.flashcards.map((card) => (
-          <li key={card.id}>
-            <Card className="p-4">
+          <li key={card.id} className="group">
+            <Card className="h-full p-4 transition-shadow hover:shadow-md hover:shadow-indigo-100/60">
               <FlashcardFields kitId={kit.id} card={card} patch={patch} />
             </Card>
           </li>
@@ -105,11 +105,11 @@ function FlashcardFields({
 
   return (
     <div className="space-y-2">
-      <Input value={front} onChange={(e) => save("front", e.target.value)} aria-label="Flashcard front" className="font-medium" />
-      <Textarea value={back} onChange={(e) => save("back", e.target.value)} rows={2} aria-label="Flashcard back" className="text-sm" />
+      <Input value={front} onChange={(e) => save("front", e.target.value)} aria-label="Flashcard front" className="border-transparent bg-transparent px-2 py-1 font-medium shadow-none hover:border-slate-200 focus:border-indigo-500" />
+      <Textarea value={back} onChange={(e) => save("back", e.target.value)} rows={2} aria-label="Flashcard back" className="resize-none border-transparent bg-transparent px-2 py-1 text-sm text-slate-600 shadow-none hover:border-slate-200 focus:border-indigo-500" />
       <div className="flex items-center justify-between text-xs">
         <div className="flex gap-1.5">
-          <Badge tone={card.origin === "user" ? "blue" : card.origin === "edited" ? "amber" : "slate"}>
+          <Badge tone={card.origin === "user" ? "indigo" : card.origin === "edited" ? "amber" : "slate"}>
             {card.origin}
           </Badge>
           {state !== "idle" && (
@@ -118,8 +118,8 @@ function FlashcardFields({
             </span>
           )}
         </div>
-        <div className="flex gap-1">
-          <Button variant="ghost" onClick={() => patch({ op: "toggle_pin_flashcard", card_id: card.id })} aria-label={card.pinned ? "Unpin card" : "Pin card"}>
+        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <Button variant="ghost" onClick={() => patch({ op: "toggle_pin_flashcard", card_id: card.id })} aria-label={card.pinned ? "Unpin card" : "Pin card"} className={card.pinned ? "text-amber-500" : ""}>
             {card.pinned ? "★" : "☆"}
           </Button>
           <Button variant="danger" onClick={() => patch({ op: "delete_flashcard", card_id: card.id })} aria-label="Delete card">

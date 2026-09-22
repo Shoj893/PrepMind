@@ -12,28 +12,30 @@ export function CoveragePanel({ kit }: PanelProps) {
 
   return (
     <div className="space-y-4">
-      <Card className="p-5">
-        <h2 className="font-semibold">Coverage after {kit.coverage.passes} generation pass(es)</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          {covered.length} of {kit.role.requirements.length} requirements have at least one
-          question against them. Coverage is computed by comparing ids — not by asking the model.
-        </p>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-emerald-500"
-            style={{
-              width: `${kit.role.requirements.length === 0 ? 0 : (covered.length / kit.role.requirements.length) * 100}%`,
-            }}
-          />
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-br from-emerald-500 to-teal-500 p-5 text-white">
+          <h2 className="font-semibold">Coverage after {kit.coverage.passes} generation pass(es)</h2>
+          <p className="mt-1 text-sm text-emerald-50">
+            {covered.length} of {kit.role.requirements.length} requirements have at least one
+            question against them — computed by comparing ids, not by asking the model.
+          </p>
+          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/25">
+            <div
+              className="h-full rounded-full bg-white shadow-sm transition-all"
+              style={{
+                width: `${kit.role.requirements.length === 0 ? 0 : (covered.length / kit.role.requirements.length) * 100}%`,
+              }}
+            />
+          </div>
+          <p className="mt-2 text-sm text-emerald-50">
+            {musts.length} must-have requirement{musts.length === 1 ? "" : "s"} ·{" "}
+            {musts.filter((r) => covered.includes(r.id)).length} fully covered
+          </p>
         </div>
-        <p className="mt-2 text-sm text-slate-500">
-          {musts.length} must-have requirement{musts.length === 1 ? "" : "s"} ·{" "}
-          {musts.filter((r) => covered.includes(r.id)).length} fully covered
-        </p>
       </Card>
 
       {gaps.length > 0 && (
-        <Card className="border-amber-200 p-5">
+        <Card className="border-amber-200 bg-amber-50/50 p-5">
           <h3 className="font-semibold text-amber-900">
             {gaps.length} requirement{gaps.length === 1 ? "" : "s"} without a question
           </h3>

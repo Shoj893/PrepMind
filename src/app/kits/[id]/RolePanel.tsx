@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CategoryBadge } from "@/components/CategoryBadge";
 import { Badge, Button, Card, Input } from "@/components/ui";
 import type { PanelProps } from "./KitWorkspace";
 
@@ -9,18 +10,20 @@ export function RolePanel({ kit, patch }: PanelProps) {
     <div className="space-y-4">
       <Card className="p-5">
         <h2 className="font-semibold">{kit.role.title}</h2>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{kit.role.summary_md}</p>
+        <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-600">{kit.role.summary_md}</p>
       </Card>
 
-      <Card className="p-5">
-        <div className="mb-3 flex items-center justify-between">
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-5 py-3">
           <h3 className="font-semibold">Requirements</h3>
           <span className="text-sm text-slate-500">
-            {kit.role.requirements.filter((r) => r.kind === "must").length} must ·{" "}
-            {kit.role.requirements.filter((r) => r.kind === "nice").length} nice
+            <span className="font-semibold text-indigo-600">{kit.role.requirements.filter((r) => r.kind === "must").length}</span>
+            {" "}must ·{" "}
+            <span className="font-semibold text-slate-500">{kit.role.requirements.filter((r) => r.kind === "nice").length}</span>
+            {" "}nice
           </span>
         </div>
-        <ul className="space-y-3">
+        <ul className="divide-y divide-slate-100">
           {kit.role.requirements.map((req) => (
             <RequirementRow
               key={req.id}
@@ -85,12 +88,16 @@ function RequirementRow({
             value={kind}
             aria-label="Requirement priority"
             onChange={(e) => onChange(text, e.target.value as "must" | "nice")}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+            className={`cursor-pointer rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset focus:outline-none ${
+              kind === "must"
+                ? "bg-indigo-50 text-indigo-700 ring-indigo-200"
+                : "bg-slate-100 text-slate-600 ring-slate-200"
+            }`}
           >
             <option value="must">must</option>
             <option value="nice">nice</option>
           </select>
-          <Badge>{category.replace("_", " ")}</Badge>
+          <CategoryBadge category={category} />
           <Badge tone={questionCount > 0 ? "green" : "red"}>
             {questionCount} question{questionCount === 1 ? "" : "s"}
           </Badge>

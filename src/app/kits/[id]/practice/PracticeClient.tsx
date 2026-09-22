@@ -68,85 +68,117 @@ export function PracticeClient({ kit }: { kit: Kit }) {
     }
   }
 
+  const reqText = (rid: string) =>
+    kit.role.requirements.find((r) => r.id === rid)?.text.slice(0, 60) ?? rid;
+
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-8">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">Practice — {kit.title}</h1>
-          <p className="text-sm text-slate-500">
-            {coverage.seen}/{coverage.total} seen · {coverage.confident} confident · weakest cards
-            first
-          </p>
+    <main className="min-h-screen">
+      <div className="border-b border-slate-200/70 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/60">
+        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-3 px-4 py-6">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Practice — {kit.title}</h1>
+            <p className="text-sm text-slate-500">
+              {coverage.seen}/{coverage.total} seen · {coverage.confident} confident · weakest
+              cards first
+            </p>
+          </div>
+          <Link href={`/kits/${kit.id}`}>
+            <Button variant="secondary">Back to kit</Button>
+          </Link>
         </div>
-        <Link href={`/kits/${kit.id}`}>
-          <Button variant="secondary">Back to kit</Button>
-        </Link>
-      </header>
+      </div>
 
-      {error && <div className="mb-4"><ErrorBanner message={error} /></div>}
+      <div className="mx-auto w-full max-w-2xl px-4 py-8">
+        {error && <div className="mb-4"><ErrorBanner message={error} /></div>}
 
-      {!data ? (
-        <Card className="flex items-center justify-center p-10">
-          <Spinner />
-        </Card>
-      ) : kit.flashcards.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-slate-500">
-          This kit has no flashcards yet.
-        </Card>
-      ) : !current ? (
-        <Card className="p-8 text-center">
-          <p className="font-medium">All caught up 🎉</p>
-          <p className="mt-1 text-sm text-slate-500">
-            You reviewed {reviewed} card{reviewed === 1 ? "" : "s"} this session. Cards return as
-            their intervals mature.
-          </p>
-        </Card>
-      ) : (
-        <>
-          <Card className="p-6">
-            <div className="mb-3 flex items-center gap-2 text-xs text-slate-500">
-              {current.stat && current.stat.reviews > 0 && (
-                <Badge tone={current.stat.last_confidence !== null && current.stat.last_confidence >= 2 ? "green" : "amber"}>
-                  last: {current.stat.last_confidence !== null ? CONFIDENCE_LABELS[current.stat.last_confidence] : "?"}
-                </Badge>
-              )}
-              {current.requirement_ids.length > 0 && <span>covers: {current.requirement_ids.join(", ")}</span>}
-            </div>
-            <p className="text-lg font-medium">{current.front}</p>
-            {revealed ? (
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="whitespace-pre-wrap text-sm text-slate-700">{current.back}</p>
+        {!data ? (
+          <Card className="flex items-center justify-center p-10">
+            <Spinner className="text-indigo-600" />
+          </Card>
+        ) : kit.flashcards.length === 0 ? (
+          <Card className="p-8 text-center text-sm text-slate-500">
+            This kit has no flashcards yet.
+          </Card>
+        ) : !current ? (
+          <Card className="p-10 text-center">
+            <p className="text-4xl" aria-hidden="true">🎉</p>
+            <p className="mt-3 font-semibold">All caught up</p>
+            <p className="mt-1 text-sm text-slate-500">
+              You reviewed {reviewed} card{reviewed === 1 ? "" : "s"} this session. Cards return as
+              their intervals mature.
+            </p>
+            <Link href={`/kits/${kit.id}/interview`} className="mt-4 inline-block">
+              <Button variant="secondary">Try a mock interview</Button>
+            </Link>
+          </Card>
+        ) : (
+          <>
+            <Card className="overflow-hidden">
+              <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-2.5">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  {current.stat && current.stat.reviews > 0 && (
+                    <Badge
+                      tone={
+                        current.stat.last_confidence !== null && current.stat.last_confidence >= 2
+                          ? "green"
+                          : "amber"
+                      }
+                    >
+                      last:{" "}
+                      {current.stat.last_confidence !== null
+                        ? CONFIDENCE_LABELS[current.stat.last_confidence]
+                        : "?"}
+                    </Badge>
+                  )}
+                  {current.requirement_ids.length > 0 && (
+                    <span className="truncate">covers: {current.requirement_ids.map(reqText).join(" · ")}</span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="mt-4">
-                <Button variant="secondary" onClick={() => setRevealed(true)}>
-                  Reveal answer
-                </Button>
+              <div className="p-8">
+                <p className="text-center text-lg font-medium leading-relaxed">{current.front}</p>
+                {revealed ? (
+                  <div className="mt-6 rounded-xl bg-indigo-50/70 p-5 ring-1 ring-inset ring-indigo-100">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-400">
+                      Answer
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                      {current.back}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-8 text-center">
+                    <Button onClick={() => setRevealed(true)}>Reveal answer</Button>
+                    <p className="mt-3 text-xs text-slate-400">
+                      Try answering out loud first — then compare.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {revealed && (
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="How confident did you feel?">
+                {([0, 1, 2, 3] as const).map((confidence) => (
+                  <Button
+                    key={confidence}
+                    variant={confidence >= 2 ? "secondary" : "danger"}
+                    loading={recording}
+                    disabled={recording}
+                    onClick={() => record(confidence)}
+                  >
+                    {CONFIDENCE_LABELS[confidence]}
+                  </Button>
+                ))}
               </div>
             )}
-          </Card>
 
-          {revealed && (
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="group" aria-label="How confident did you feel?">
-              {([0, 1, 2, 3] as const).map((confidence) => (
-                <Button
-                  key={confidence}
-                  variant={confidence >= 2 ? "secondary" : "danger"}
-                  loading={recording}
-                  disabled={recording}
-                  onClick={() => record(confidence)}
-                >
-                  {CONFIDENCE_LABELS[confidence]}
-                </Button>
-              ))}
-            </div>
-          )}
-
-          <p className="mt-4 text-center text-xs text-slate-400">
-            Cards rated “Again” come back immediately; intervals grow with confidence.
-          </p>
-        </>
-      )}
+            <p className="mt-4 text-center text-xs text-slate-400">
+              Cards rated “Again” come back immediately; intervals grow with confidence.
+            </p>
+          </>
+        )}
+      </div>
     </main>
   );
 }
