@@ -32,11 +32,16 @@ export class LLMError extends Error {
 }
 
 export function createLLMClientFromEnv(
-  env: Record<string, string | undefined> = process.env
+  overrides?: Record<string, string | undefined>
 ): LLMClient {
-  const envLlmProvider = env.LLM_PROVIDER ?? process.env.LLM_PROVIDER;
-  const envGroqKey = env.GROQ_API_KEY ?? process.env.GROQ_API_KEY;
-  const envOpenaiKey = env.OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+  // Always read from process.env fresh at call time. Never use process.env as a
+  // default parameter — default params are evaluated once when the module loads,
+  // which on Railway/PaaS happens before env vars are fully injected.
+  const env = overrides ? { ...process.env, ...overrides } : process.env;
+
+  const envLlmProvider = env.LLM_PROVIDER;
+  const envGroqKey = env.GROQ_API_KEY;
+  const envOpenaiKey = env.OPENAI_API_KEY;
 
   const provider = (
     envLlmProvider ??
@@ -56,16 +61,16 @@ export function createLLMClientFromEnv(
     // Groq's chat-completions API is OpenAI-compatible.
     return new OpenAICompatibleClient({
       apiKey: envGroqKey,
-      baseUrl: env.GROQ_BASE_URL ?? process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
-      model: env.GROQ_MODEL ?? process.env.GROQ_MODEL ?? "openai/gpt-oss-20b",
+      baseUrl: env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1",
+      model: env.GROQ_MODEL ?? "openai/gpt-oss-20b",
     });
   }
 
   if (provider === "openai-compatible" && envOpenaiKey) {
     return new OpenAICompatibleClient({
       apiKey: envOpenaiKey,
-      baseUrl: env.OPENAI_BASE_URL ?? process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
-      model: env.OPENAI_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+      baseUrl: env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+      model: env.OPENAI_MODEL ?? "gpt-4o-mini",
     });
   }
 
