@@ -1,0 +1,32 @@
+[
+  {
+    "id": "fixture-backend",
+    "jd": "Senior Backend Engineer\n\nWe build a platform for logistics teams.\n\nResponsibilities:\n- Design APIs with Python and Django (required)\n- Operate services on Kubernetes with strong reliability practices\n- Mentor engineers through code review (required)\n- Bonus: experience with event streaming (nice to have)",
+    "company_url": "http://127.0.0.1:4567/",
+    "days": 7
+  },
+  {
+    "id": "fixture-frontend",
+    "jd": "Frontend Engineer\n\nResponsibilities:\n- Build user interfaces with React and TypeScript (required)\n- Collaborate with designers on accessibility\n- Bonus: Tailwind CSS experience (nice to have)",
+    "company_url": "http://127.0.0.1:4567/careers",
+    "days": 3
+  },
+  {
+    "id": "fixture-thin-jd",
+    "jd": "Support engineer. Answer customer tickets by email. Experience with Zendesk required.",
+    "company_url": "http://127.0.0.1:4567/",
+    "days": 2
+  },
+  {
+    "id": "fixture-unreachable",
+    "jd": "Platform Engineer with Go and Terraform experience required. You will own infrastructure and reliability for a small team. Bonus: experience with observability tooling.",
+    "company_url": "http://127.0.0.1:9/",
+    "days": 5
+  },
+  {
+    "id": "fixture-one-day",
+    "jd": "Data Engineer\n\nResponsibilities:\n- Build pipelines with SQL and dbt (required)\n- Own data quality and testing practices (required)\n- Communicate with stakeholders about metrics (required)\n- Bonus: Python Airflow experience (nice to have)",
+    "company_url": "http://127.0.0.1:4567/",
+    "days": 1
+  }
+]

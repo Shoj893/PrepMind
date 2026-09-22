@@ -1,5 +1,5 @@
 import dnsCallback from "node:dns";
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 import { assertFetchableUrl, assertPublicHost, isPrivateIp, guardEnabled } from "./url";
 
 /**
@@ -63,7 +63,7 @@ export interface FetchOptions {
 export type PageFetcher = (url: string, options?: FetchOptions) => Promise<FetchedPage>;
 
 /** Raw fetch signature tests can stub to exercise retry logic directly. */
-export type RawFetch = typeof globalThis.fetch;
+export type RawFetch = typeof undiciFetch;
 
 /** Custom DNS lookup that re-checks every resolved address at connect time. */
 const guardedLookup = (
@@ -74,6 +74,13 @@ const guardedLookup = (
   dnsCallback.lookup(hostname, { ...options, all: true }, (err, addresses) => {
     if (err) return callback(err);
     const list = Array.isArray(addresses) ? addresses : [addresses as dnsCallback.LookupAddress];
+    if (list.length === 0) {
+      // Some resolvers report success with an empty list; treat as ENOTFOUND
+      // so the fetch retries/fails normally instead of crashing net internals.
+      const notFound = new Error(`lookup ${hostname} returned no addresses`) as NodeJS.ErrnoException;
+      notFound.code = "ENOTFOUND";
+      return callback(notFound);
+    }
     if (guardEnabled()) {
       for (const entry of list) {
         if (isPrivateIp(entry.address)) {
@@ -85,8 +92,8 @@ const guardedLookup = (
         }
       }
     }
-    const first = list[0];
-    callback(null, first, first?.family ?? 4);
+    const first = list[0]!;
+    callback(null, first.address, first.family);
   });
 };
 
@@ -142,7 +149,7 @@ export async function fetchPage(rawUrl: string, options: FetchOptions & { rawFet
     return skipped(rawUrl, rawUrl, `rejected: ${(err as Error).message}`);
   }
 
-  const doFetch = options.rawFetch ?? globalThis.fetch;
+  const doFetch = options.rawFetch ?? undiciFetch;
   const minInterval = options.minHostIntervalMs ?? MIN_HOST_INTERVAL_MS;
 
   let currentUrl = url;
@@ -216,12 +223,12 @@ async function fetchWithRetries(
   url: URL,
   options: FetchOptions,
   minInterval: number
-): Promise<{ page: FetchedPage; response?: Response }> {
+): Promise<{ page: FetchedPage; response?: Awaited<ReturnType<RawFetch>> }> {
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     await acquireSlot(url.hostname, minInterval);
     try {
-      const init = {
+      const response = await doFetch(url, {
         redirect: "manual",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         headers: {
@@ -230,11 +237,11 @@ async function fetchWithRetries(
           "accept-language": "en",
         },
         dispatcher: guardedAgent,
-      } as RequestInit;
-
-      const response = await doFetch(url, init);
+      });
+      // The slot is held only until the response headers arrive — politeness
+      // between requests is enforced by lastRequestAt at acquire time.
+      releaseSlot(url.hostname);
       if (response.status === 429 || response.status >= 500) {
-        releaseSlot(url.hostname);
         if (attempt < MAX_ATTEMPTS) {
           const retryAfter = Number(response.headers.get("retry-after"));
           const backoffMs = Number.isFinite(retryAfter) && retryAfter > 0
@@ -282,7 +289,7 @@ export function isAllowedContentType(contentType: string | undefined | null): bo
 }
 
 async function readBodyWithLimit(
-  response: Response,
+  response: Awaited<ReturnType<RawFetch>>,
   maxBytes: number
 ): Promise<{ text: string; truncated: boolean }> {
   const decoder = new TextDecoder("utf-8", { fatal: false });

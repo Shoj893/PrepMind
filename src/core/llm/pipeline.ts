@@ -22,6 +22,7 @@ import {
 } from "./prompts";
 import type { CrawlResult } from "@/core/retrieval/crawl";
 import type { DiscussionResult } from "@/core/retrieval/discussion";
+import { isIP } from "node:net";
 
 /**
  * The kit generation pipeline: deliberate steps, each responding to what the
@@ -117,7 +118,11 @@ export async function generateKit(input: GenerateKitInput, deps: PipelineDeps): 
 
   // ---- 3. public discussion --------------------------------------------------
   progress("discussion", "Looking for public discussion of the interview process…", 30);
-  const companyName = companyFromUrl(input.companyUrl, roleTitle);
+  const companyName = pickCompanyName(
+    input.companyUrl,
+    crawl.pages.find((p) => p.kind === "home")?.title,
+    roleTitle
+  ).slice(0, 80);
   const discussion = await (deps.searchDiscussion ?? defaultDiscussion)(companyName);
 
   const sources = collectSources(crawl, discussion);
@@ -217,7 +222,7 @@ export async function generateKit(input: GenerateKitInput, deps: PipelineDeps): 
       brief_edited: false,
     },
     role: {
-      title: roleTitle || "the role",
+      title: (roleTitle || "the role").slice(0, 120),
       summary_md: summaryMd,
       requirements,
     },
@@ -420,6 +425,29 @@ export function companyFromUrl(url: string, fallback: string): string {
   } catch {
     return fallback || "the company";
   }
+}
+
+/**
+ * Company display name. For real domains we use the hostname label; for IP /
+ * localhost URLs (evaluation fixtures served locally) the hostname is noise,
+ * so the home page title is the better source.
+ */
+export function pickCompanyName(
+  url: string,
+  homeTitle: string | undefined,
+  fallback: string
+): string {
+  try {
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, "").replace(/^www\./, "");
+    if (isIP(host) || host === "localhost" || host.endsWith(".localhost")) {
+      const first = homeTitle?.split(/[—–|:·-]/)[0]?.trim();
+      if (first && first.length > 1 && !/^\d+$/.test(first)) return first;
+      return fallback || "the company";
+    }
+  } catch {
+    // fall through to plain URL derivation
+  }
+  return companyFromUrl(url, fallback);
 }
 
 export async function completeJson<T>(llm: LLMClient, prompt: { system: string; user: string }): Promise<T> {
